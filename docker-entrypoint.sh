@@ -1,18 +1,12 @@
 #!/bin/bash
 set -e
 
-# Executa entrypoint oficial original do WordPress (configura o ambiente e o WP)
-docker-entrypoint.sh.original() {
-  # Invoca o script original do container Wordpress base
-  /usr/local/bin/docker-entrypoint.sh.orig "$@"
-}
-
-# Se for a primeira vez, move o script original para .orig e substitui pelo nosso
+# Executa entrypoint oficial original do WordPress
 if [ ! -f /usr/local/bin/docker-entrypoint.sh.orig ]; then
   mv /usr/local/bin/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh.orig
 fi
 
-# Chama o entrypoint original para preparar o ambiente
+# Chama o entrypoint original em background
 /usr/local/bin/docker-entrypoint.sh.orig "$@" &
 
 # Espera o banco de dados ficar disponível
@@ -21,7 +15,7 @@ until mysqladmin ping -h"${WORDPRESS_DB_HOST%%:*}" --silent; do
   sleep 3
 done
 
-# Espera o WP ficar acessível para rodar WP-CLI
+# Espera o WordPress estar instalado via WP-CLI
 TRIES=0
 MAX_TRIES=30
 while ! wp core is-installed --allow-root --path=/var/www/html; do
@@ -30,7 +24,6 @@ while ! wp core is-installed --allow-root --path=/var/www/html; do
     exit 1
   fi
   echo "WordPress não instalado ainda. Instalando... (tentativa $TRIES)"
-  # Instala o WordPress via WP-CLI
   wp core install \
     --url="${WP_SITE_URL:-http://localhost:8000}" \
     --title="${WP_TITLE:-Meu Site}" \
